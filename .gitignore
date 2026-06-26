@@ -1,8 +1,12 @@
 __pycache__/
 *.pyc
 
-# Local configuration (copy checks.example.json -> checks.json and edit it).
-# Your real config holds hosts, datasources, tokens and rules — never commit it.
+# SQLite store: config, secrets and runtime state — never commit it.
+rootcause.db
+rootcause.db-wal
+rootcause.db-shm
+
+# Legacy JSON config (imported into rootcause.db on first run; kept for rollback).
 checks.json
 checks.bak-*.json
 .claude/

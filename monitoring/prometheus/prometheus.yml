@@ -4,8 +4,7 @@ global:
   external_labels:
     monitor: rootcause-local
 
-# Alert rules live in rules/*.yml. RootCause ships none — add your own, or
-# generate them from checks.json with tools/migrate_checks_to_rules.py.
+# Alert rules live in rules/*.yml. RootCause ships none — add your own.
 rule_files:
   - rules/*.yml
 

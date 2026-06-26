@@ -61,26 +61,30 @@ It is **not** a ticketing system: problems either auto-resolve or notify you.
 ## Quick start
 
 ```bash
-# 1. Create your local configuration from the template
-cp checks.example.json checks.json
-
-# 2. Install dependencies
+# 1. Install dependencies
 pip install -r requirements.txt
 
-# 3. Run the web UI (binds to 127.0.0.1:8787 by default)
+# 2. Run the web UI (binds to 127.0.0.1:8787 by default)
 python3 rootcause_checker.py --serve
 ```
 
-Then open <http://127.0.0.1:8787> and add your hosts, datasources and rules from
-the UI. `checks.json` is git-ignored — it holds your real config and secrets and
-must never be committed.
+On first run RootCause creates a local SQLite database (`rootcause.db`) and seeds
+it with the default options plus the demo rules / check templates from
+`checks.example.json`. Then open <http://127.0.0.1:8787> and add your hosts,
+datasources and rules from the UI. `rootcause.db` is git-ignored — it holds your
+real config, secrets and runtime state and must never be committed.
+
+> Upgrading from a JSON-file install? Just run it — any existing `checks.json`
+> and `rootcause_*.json` state files are imported into `rootcause.db`
+> automatically on first start (the original files are left untouched).
 
 Run a single check cycle (no UI) by invoking the checker without `--serve`.
 
 ## Configuration
 
-All configuration lives in `checks.json` (created from `checks.example.json`).
-Key sections:
+Configuration is stored in the SQLite database `rootcause.db` (the `documents`
+table, one row per former JSON file). `checks.example.json` is the seed template
+and reference for the schema. Key sections of the config document:
 
 | Section | What it holds |
 | --- | --- |
@@ -133,8 +137,8 @@ edit them for your host before installing.
 ## Contributing
 
 Contributions are welcome — open an issue or a pull request. Please never commit
-real configuration: keep hosts, datasources, tokens and rules in your local
-`checks.json`, not in the repository.
+real configuration: hosts, datasources, tokens and rules live in your local
+`rootcause.db`, which is git-ignored and must never be committed.
 
 ## License
 

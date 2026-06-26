@@ -2,10 +2,10 @@
 
 These replace the native `ssh`/`local`/`composite` command checks. Each script
 exits `0` when OK and non-zero when there is a problem; script_exporter exposes
-that as `script_success{script="<name>"}`, and the generated Prometheus rule
-(`tools/migrate_checks_to_rules.py`) alerts on it. When the alert fires,
-Alertmanager forwards it to RootCause's `/api/ingest/alertmanager`, which can run a
-remediation action chain (via a rule `problem_match`).
+that as `script_success{script="<name>"}`, and a Prometheus rule alerts on it.
+When the alert fires, Alertmanager forwards it to RootCause's
+`/api/ingest/alertmanager`, which can run a remediation action chain (via a rule
+`problem_match`).
 
 ## Local vs remote (SSH) checks
 
@@ -23,11 +23,8 @@ remediation action chain (via a rule `problem_match`).
 
   Add the key mount to the `script-exporter` service in `docker-compose.yml`.
 
-## Regenerating
+## Adding a check
 
-After editing `checks.json`, regenerate the rules and re-read the report for any
-new scripts/targets to add:
-
-```sh
-python tools/migrate_checks_to_rules.py
-```
+For each new script, add a matching Prometheus alerting rule under
+`monitoring/prometheus/rules/` (alerting on `script_success{script="<name>"} == 0`)
+and a remediation rule in RootCause (stored in `rootcause.db`).
