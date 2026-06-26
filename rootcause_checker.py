@@ -6216,7 +6216,7 @@ class StatusHandler(BaseHTTPRequestHandler):
         mobile = get_mobile_config(config)
         alerts = build_mobile_alerts(report, allowed_targets=api_key_allowed_targets(api_key or {}))
         return {
-            "app": {"name": "RootCause", "logo_url": "/static/rootcause-icon.svg"},
+            "app": {"name": "RootCause", "logo_url": "/static/rootcause-logo.png"},
             "server": {
                 "base_url": mobile.get("public_base_url", ""),
                 "timestamp": report.get("timestamp"),

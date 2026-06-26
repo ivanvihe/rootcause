@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="static/rootcause-icon.svg" alt="RootCause" width="120" height="120">
+  <img src="static/rootcause-icon.png" alt="RootCause" width="128">
 </p>
 
 <h1 align="center">RootCause</h1>
