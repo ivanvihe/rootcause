@@ -1,0 +1,83 @@
+{
+  "uid": "rootcause-containers",
+  "title": "RootCause Docker / Contenedores",
+  "tags": ["rootcause", "docker", "cadvisor"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-1h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "instance",
+        "label": "Host",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "rootcause-prometheus" },
+        "query": { "query": "label_values(machine_memory_bytes, instance)", "refId": "A" },
+        "refresh": 2,
+        "includeAll": false,
+        "multi": false,
+        "sort": 1,
+        "current": {}
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "stat", "title": "Contenedores activos", "id": 1,
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "rootcause-prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "fixed", "fixedColor": "blue" } }, "overrides": [] },
+      "options": { "colorMode": "value", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [ { "refId": "A", "expr": "count(count by (id) (container_last_seen{instance=~\"$instance\",id=~\".*docker-.*\"}))", "datasource": { "type": "prometheus", "uid": "rootcause-prometheus" } } ]
+    },
+    {
+      "type": "stat", "title": "CPU total contenedores (cores)", "id": 2,
+      "gridPos": { "h": 4, "w": 9, "x": 6, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "rootcause-prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short", "decimals": 2, "color": { "mode": "fixed", "fixedColor": "orange" } }, "overrides": [] },
+      "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [ { "refId": "A", "expr": "sum(rate(container_cpu_usage_seconds_total{instance=~\"$instance\",id=~\".*docker-.*\"}[5m]))", "datasource": { "type": "prometheus", "uid": "rootcause-prometheus" } } ]
+    },
+    {
+      "type": "stat", "title": "Memoria total contenedores", "id": 3,
+      "gridPos": { "h": 4, "w": 9, "x": 15, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "rootcause-prometheus" },
+      "fieldConfig": { "defaults": { "unit": "bytes", "color": { "mode": "fixed", "fixedColor": "green" } }, "overrides": [] },
+      "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [ { "refId": "A", "expr": "sum(container_memory_working_set_bytes{instance=~\"$instance\",id=~\".*docker-.*\"})", "datasource": { "type": "prometheus", "uid": "rootcause-prometheus" } } ]
+    },
+    {
+      "type": "timeseries", "title": "Top 12 contenedores por CPU (% de 1 core)", "id": 4,
+      "gridPos": { "h": 10, "w": 12, "x": 0, "y": 4 },
+      "datasource": { "type": "prometheus", "uid": "rootcause-prometheus" },
+      "fieldConfig": { "defaults": { "unit": "percent", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["lastNotNull", "max"] }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [ { "refId": "A", "expr": "topk(12, label_replace(sum by (id) (rate(container_cpu_usage_seconds_total{instance=~\"$instance\",id=~\".*docker-.*\"}[5m])) * 100, \"cid\", \"$1\", \"id\", \".*docker-([0-9a-f]{12}).*\"))", "legendFormat": "{{cid}}", "datasource": { "type": "prometheus", "uid": "rootcause-prometheus" } } ]
+    },
+    {
+      "type": "timeseries", "title": "Top 12 contenedores por memoria", "id": 5,
+      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 4 },
+      "datasource": { "type": "prometheus", "uid": "rootcause-prometheus" },
+      "fieldConfig": { "defaults": { "unit": "bytes", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["lastNotNull", "max"] }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [ { "refId": "A", "expr": "topk(12, label_replace(sum by (id) (container_memory_working_set_bytes{instance=~\"$instance\",id=~\".*docker-.*\"}), \"cid\", \"$1\", \"id\", \".*docker-([0-9a-f]{12}).*\"))", "legendFormat": "{{cid}}", "datasource": { "type": "prometheus", "uid": "rootcause-prometheus" } } ]
+    },
+    {
+      "type": "table", "title": "Contenedores — CPU y memoria actuales", "id": 6,
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 14 },
+      "datasource": { "type": "prometheus", "uid": "rootcause-prometheus" },
+      "fieldConfig": { "defaults": {}, "overrides": [ { "matcher": { "id": "byName", "options": "Memoria" }, "properties": [ { "id": "unit", "value": "bytes" } ] }, { "matcher": { "id": "byName", "options": "CPU (cores)" }, "properties": [ { "id": "unit", "value": "short" }, { "id": "decimals", "value": 3 } ] } ] },
+      "options": { "showHeader": true, "sortBy": [ { "displayName": "CPU (cores)", "desc": true } ] },
+      "transformations": [
+        { "id": "merge", "options": {} },
+        { "id": "organize", "options": { "renameByName": { "cid": "Contenedor (id)", "Value #A": "CPU (cores)", "Value #B": "Memoria" }, "excludeByName": { "Time": true, "__name__": true, "job": true, "instance": true, "id": true } } }
+      ],
+      "targets": [
+        { "refId": "A", "format": "table", "instant": true, "expr": "label_replace(sum by (id) (rate(container_cpu_usage_seconds_total{instance=~\"$instance\",id=~\".*docker-.*\"}[5m])), \"cid\", \"$1\", \"id\", \".*docker-([0-9a-f]{12}).*\")", "datasource": { "type": "prometheus", "uid": "rootcause-prometheus" } },
+        { "refId": "B", "format": "table", "instant": true, "expr": "label_replace(sum by (id) (container_memory_working_set_bytes{instance=~\"$instance\",id=~\".*docker-.*\"}), \"cid\", \"$1\", \"id\", \".*docker-([0-9a-f]{12}).*\")", "datasource": { "type": "prometheus", "uid": "rootcause-prometheus" } }
+      ]
+    }
+  ]
+}

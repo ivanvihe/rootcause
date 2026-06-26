@@ -1,0 +1,10 @@
+[Unit]
+Description=Update deSEC dynamic DNS for RootCause
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ivan
+EnvironmentFile=/etc/rootcause-ddns.env
+ExecStart=/opt/rootcause/deploy/desec-ddns-update.sh rootcause.example.com

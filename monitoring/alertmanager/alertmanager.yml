@@ -1,0 +1,29 @@
+# Alertmanager → RootCause bridge.
+#
+# Every alert is forwarded to RootCause's ingest webhook, which normalizes it into
+# the unified problem store and (if a rule's problem_match matches) runs the
+# remediation action chain. Grouping is kept short so problems surface fast.
+#
+# SETUP: create an ingest token once and paste it below as the bearer credential:
+#   python rootcause_checker.py --add-ingest-token alertmanager
+# then replace REPLACE_WITH_INGEST_TOKEN with the printed raw token.
+
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: rootcause
+  group_by: ["alertname", "instance"]
+  group_wait: 10s
+  group_interval: 30s
+  repeat_interval: 4h
+
+receivers:
+  - name: rootcause
+    webhook_configs:
+      - url: http://127.0.0.1:8787/api/ingest/alertmanager
+        send_resolved: true
+        http_config:
+          authorization:
+            type: Bearer
+            credentials: REPLACE_WITH_INGEST_TOKEN

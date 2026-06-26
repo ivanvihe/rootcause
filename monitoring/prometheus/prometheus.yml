@@ -1,0 +1,107 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: rootcause-local
+
+# Alert rules live in rules/*.yml. RootCause ships none — add your own, or
+# generate them from checks.json with tools/migrate_checks_to_rules.py.
+rule_files:
+  - rules/*.yml
+
+# RootCause reads firing alerts by POLLING this Prometheus' /api/v1/alerts (the
+# "Prometheus · localhost" datasource), so no Alertmanager is required. To use
+# the push path instead, bring up the alertmanager service, wire its ingest
+# token (see alertmanager/alertmanager.yml), and uncomment the block below.
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets: ["127.0.0.1:9093"]
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: rootcause
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["localhost:8787"]
+        labels:
+          instance: rootcause
+
+  - job_name: node
+    static_configs:
+      - targets: ["localhost:9100"]
+        labels:
+          instance: localhost
+          role: workstation
+      # Add your other hosts here, e.g.:
+      # - targets: ["mediaserver.example.lan:9100"]
+      #   labels:
+      #     instance: mediaserver
+      #     role: server
+
+  # ---------------------------------------------------------------------------
+  # The jobs below are OPTIONAL examples. Uncomment and edit the targets to
+  # match your environment, or delete what you don't need.
+  # ---------------------------------------------------------------------------
+
+  # GPU (NVIDIA) via nvidia_gpu_exporter / dcgm-exporter.
+  # - job_name: nvidia
+  #   static_configs:
+  #     - targets: ["localhost:9835"]
+  #       labels:
+  #         instance: localhost
+  #         role: workstation
+
+  # Per-container CPU/memory (cAdvisor).
+  # - job_name: cadvisor
+  #   static_configs:
+  #     - targets: ["mediaserver.example.lan:8081"]
+  #       labels:
+  #         instance: mediaserver
+  #         role: server
+
+  # Blackbox probes (HTTP/TCP/ICMP/TLS). The probe target is passed as
+  # __param_target and the real instance becomes the probed URL; relabel keeps
+  # the host label. Requires the blackbox service (see docker-compose.yml).
+  # - job_name: blackbox-http
+  #   metrics_path: /probe
+  #   params:
+  #     module: [http_web]
+  #   static_configs:
+  #     - targets:
+  #         - http://service.example.lan/health
+  #       labels:
+  #         role: server
+  #   relabel_configs:
+  #     - source_labels: [__address__]
+  #       target_label: __param_target
+  #     - source_labels: [__param_target]
+  #       target_label: instance
+  #     - target_label: __address__
+  #       replacement: 127.0.0.1:9115
+
+  # ICMP reachability.
+  # - job_name: blackbox-icmp
+  #   metrics_path: /probe
+  #   params:
+  #     module: [icmp]
+  #   static_configs:
+  #     - targets:
+  #         - 8.8.8.8           # internet
+  #         - 192.168.1.1       # router
+  #       labels:
+  #         role: workstation
+  #   relabel_configs:
+  #     - source_labels: [__address__]
+  #       target_label: __param_target
+  #     - source_labels: [__param_target]
+  #       target_label: instance
+  #     - target_label: __address__
+  #       replacement: 127.0.0.1:9115
+
+  # Shell/SSH command checks collected by monitoring/textfile/collect.sh (host
+  # cron) and exposed via node-exporter's textfile collector as
+  # rootcause_check_success{check,host} — no separate exporter/job needed.

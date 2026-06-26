@@ -1,0 +1,22 @@
+# script_exporter (ricoberger/script-exporter) runs the migrated ssh/local/
+# composite command checks. Each script exits 0 (OK) or non-zero (problem); the
+# exporter exposes script_success{script="..."} which Prometheus rules alert on
+# and re-expose as rootcause_check_up. Add migrated scripts under ./scripts/.
+scripts:
+  - name: containers_health
+    command: /scripts/containers_health.sh
+    timeout: 30
+
+  # Remote (SSH) checks run a script that shells out via `ssh host -- <cmd>`.
+  # The exporter container needs the SSH key mounted; see scripts/README.
+  - name: jellyfin_transcode
+    command: /scripts/jellyfin_transcode.sh
+    timeout: 30
+
+  - name: wireguard_vpn
+    command: /scripts/wireguard_vpn.sh
+    timeout: 20
+
+  - name: ssl_certificates
+    command: /scripts/ssl_certificates.sh
+    timeout: 30

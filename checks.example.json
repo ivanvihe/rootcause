@@ -1,0 +1,198 @@
+{
+  "agents": [
+    {
+      "command": "claude",
+      "enabled": true,
+      "name": "claude",
+      "priority": 20,
+      "timeout": 300,
+      "type": "claude"
+    },
+    {
+      "command": "codex",
+      "enabled": false,
+      "name": "codex",
+      "priority": 10,
+      "timeout": 300,
+      "type": "codex"
+    }
+  ],
+  "ai_routing": {
+    "fallback_to_next_agent": true,
+    "prefer_highest_quota": true,
+    "probe_prompt": "Return exactly OK"
+  },
+  "alert_rules": [],
+  "alerting": {
+    "agent_cooldown_minutes": 60,
+    "failure_threshold_runs": 1,
+    "notify_on_resolve": true,
+    "repeat_notification_minutes": 60
+  },
+  "alertmanager_sources": [],
+  "check_templates": {
+    "containers_health": {
+      "command": "docker ps -a --filter status=exited --filter status=dead --format '{{.Names}}: {{.Status}}' && docker ps --filter health=unhealthy --format '{{.Names}}: {{.Status}}'",
+      "description": "No exited or unhealthy containers",
+      "expect_empty": true,
+      "fix_prompt": "Objetivo: evaluar contenedores con problemas en {host[name]} ({host[address]}) y corregir solo incidencias seguras.\n\nSeñal de fallo: {error}\n\nPlan de trabajo:\n1. Identifica qué contenedores están caídos o unhealthy.\n2. Revisa logs y determina si son servicios persistentes o contenedores one-shot/init.\n3. Reinicia solo contenedores de infraestructura conocidos cuyo fallo parezca transitorio.\n4. No actúes sobre contenedores de inicialización o de propósito ambiguo sin evidencia clara.\n\nLímites:\n- No borres contenedores, imágenes ni volúmenes.\n- No reinicies servicios no relacionados.\n- Si un contenedor init salió tras completar o por mala configuración persistente, diagnostica pero no fuerces reinicio.\n\nRespuesta esperada:\n- lista de contenedores afectados\n- clasificación de cada caso\n- acciones ejecutadas\n- validación final por contenedor actuado",
+      "type": "ssh"
+    },
+    "cpu_load": {
+      "comparator": "gt",
+      "description": "CPU load average within normal range",
+      "fix_prompt": "Objetivo: reducir la carga de CPU en {host[name]} ({host[address]}) sin impacto innecesario en producción.\n\nSeñal de fallo: {value:.1f}\n\nPlan de trabajo:\n1. Identifica proceso o contenedor dominante.\n2. Determina si el pico es transitorio o sostenido.\n3. Aplica la mitigación más pequeña posible: reinicio puntual, stop de tarea no crítica o ajuste temporal seguro.\n4. Verifica si la carga baja tras la acción.\n\nLímites:\n- No reinicies servicios críticos sin evidencia fuerte.\n- No mates procesos al azar.\n- No cambies configuración persistente salvo necesidad clara y segura.\n\nRespuesta esperada:\n- principal consumidor detectado\n- hipótesis del origen\n- mitigación aplicada\n- carga observada tras la mitigación",
+      "query": "node_load5",
+      "threshold_query": "count(count(node_cpu_seconds_total) by (cpu))",
+      "type": "prometheus_query"
+    },
+    "disk_root": {
+      "command": "df / --output=pcent | tail -1 | tr -d ' %'",
+      "comparator": "gt",
+      "description": "Root disk usage below 90%",
+      "emergency_actions": [
+        {
+          "command": "sudo journalctl --vacuum-time=3d",
+          "name": "vacuum_journal",
+          "timeout": 120,
+          "when": [
+            "no_agent",
+            "agent_failure",
+            "no_internet"
+          ]
+        },
+        {
+          "command": "docker image prune -f",
+          "name": "prune_unused_images",
+          "timeout": 120,
+          "when": [
+            "no_agent",
+            "agent_failure",
+            "no_internet"
+          ]
+        },
+        {
+          "command": "docker builder prune -f",
+          "name": "prune_builder_cache",
+          "timeout": 120,
+          "when": [
+            "no_agent",
+            "agent_failure",
+            "no_internet"
+          ]
+        }
+      ],
+      "fix_prompt": "Objetivo: liberar espacio en root de {host[name]} ({host[address]}) con limpieza segura y reversible cuando sea posible.\n\nSeñal de fallo: uso root al {value}%.\n\nPlan de trabajo:\n1. Identifica qué rutas o componentes consumen más espacio.\n2. Prioriza limpieza segura: journalctl vacuum, logs rotables, cachés temporales y artefactos Docker no críticos.\n3. Si usas Docker, solo aplica prune seguro sobre imágenes, builder cache o contenedores detenidos no necesarios; nunca sobre volúmenes.\n4. Verifica el porcentaje final de disco.\n\nLímites:\n- No uses rm -rf sobre rutas amplias o ambiguas.\n- No borres datos de usuario, bases de datos, media ni volúmenes Docker.\n- No ejecutes acciones destructivas sin evidencia del impacto.\n\nRespuesta esperada:\n- principales consumidores detectados\n- limpieza aplicada\n- espacio recuperado\n- porcentaje final de disco",
+      "threshold": 90,
+      "type": "ssh"
+    },
+    "grafana_accessible": {
+      "description": "Grafana dashboard accessible",
+      "fix_prompt": "Objetivo: restaurar acceso a Grafana en {host[name]} ({host[address]}) con una intervención mínima.\n\nSeñal de fallo: {error}\n\nPlan de trabajo:\n1. Comprueba estado del contenedor o proceso.\n2. Revisa logs recientes y puerto expuesto.\n3. Si el fallo parece transitorio, reinicia solo Grafana.\n4. Verifica el endpoint de salud al final.\n\nLímites:\n- No modifiques configuración, dashboards ni almacenamiento persistente.\n- No reinicies Prometheus ni otros componentes salvo dependencia directa demostrada.\n\nRespuesta esperada:\n- causa probable\n- logs/evidencia relevante\n- acción aplicada\n- estado final del health endpoint",
+      "timeout": 10,
+      "type": "http",
+      "url": "http://{host[address]}:3001/api/health"
+    },
+    "memory_usage": {
+      "comparator": "lt",
+      "description": "Available memory above 10%",
+      "fix_prompt": "Objetivo: recuperar memoria disponible en {host[name]} ({host[address]}) sin comprometer servicios estables.\n\nSeñal de fallo: memoria disponible al {value:.1f}%.\n\nPlan de trabajo:\n1. Identifica procesos o contenedores con mayor consumo.\n2. Determina si el uso es normal para la carga actual o si hay fuga/anomalía.\n3. Aplica la mitigación mínima razonable: reinicio puntual de servicio no crítico o contenedor claramente degradado.\n4. Verifica memoria disponible tras la acción.\n\nLímites:\n- No reinicies indiscriminadamente.\n- No toques servicios críticos sin evidencia clara.\n- No cambies configuración persistente salvo necesidad clara y segura.\n\nRespuesta esperada:\n- top consumidores detectados\n- causa probable\n- acción aplicada\n- memoria disponible tras la mitigación",
+      "query": "(node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100",
+      "threshold": 10,
+      "type": "prometheus_query"
+    }
+  },
+  "connectivity": {
+    "internet_checks": [
+      "https://1.1.1.1",
+      "https://8.8.8.8",
+      "https://www.google.com/generate_204"
+    ],
+    "timeout": 5
+  },
+  "datasources": [],
+  "hosts": {},
+  "integrations": {
+    "jira": {
+      "api_token": "",
+      "base_url": "",
+      "close_transition": "",
+      "email": "",
+      "enabled": false,
+      "issue_type": "Task",
+      "project_key": ""
+    }
+  },
+  "mobile": {
+    "allowed_scopes": [
+      "mobile:read",
+      "mobile:device",
+      "mobile:ack",
+      "mobile:silence",
+      "mobile:rerun"
+    ],
+    "api_keys": [],
+    "devices": [],
+    "enabled": true,
+    "public_base_url": "",
+    "public_hostname": "",
+    "public_port": 8443,
+    "public_scheme": "https",
+    "push": {
+      "enabled": false,
+      "provider": "fcm",
+      "server_key": ""
+    },
+    "require_https": true
+  },
+  "native_engine": {
+    "enabled": false
+  },
+  "notifications": {
+    "email_from": "RootCause <you@example.com>",
+    "email_to": "you@example.com",
+    "enabled": false,
+    "smtp_host": "smtp.gmail.com",
+    "smtp_password": "YOUR_APP_PASSWORD",
+    "smtp_port": 587,
+    "smtp_user": "you@example.com"
+  },
+  "rules": [],
+  "safety": {
+    "blocked_command_patterns": [
+      "\\brm\\s+-rf\\s+/",
+      "\\bmkfs(\\.| )",
+      "\\bdd\\s+if=",
+      "\\b(shutdown|reboot|poweroff|halt)\\b",
+      ":\\(\\)\\s*\\{",
+      "\\bcurl\\b.*\\|\\s*(sh|bash)",
+      "\\bwget\\b.*\\|\\s*(sh|bash)",
+      "\\bdocker\\s+system\\s+prune\\b.*--volumes",
+      "\\bdocker\\s+volume\\s+prune\\b",
+      "\\bdocker\\s+volume\\s+rm\\b",
+      "\\bdocker\\s+compose\\s+down\\b.*-v"
+    ],
+    "enabled": true,
+    "prompt_rules": [
+      "Nunca uses rm -rf fuera de rutas explícitamente aprobadas.",
+      "Nunca borres volúmenes Docker ni datos de usuario.",
+      "Nunca ejecutes mkfs, dd, reboot, shutdown o poweroff.",
+      "Si limpias Docker, usa prune seguro sin --volumes.",
+      "Prioriza vacuum de journal, rotación de logs y prune de imágenes/contenedores no usados."
+    ],
+    "safe_cleanup_examples": [
+      "journalctl --vacuum-time=3d",
+      "docker image prune -f",
+      "docker container prune -f",
+      "docker builder prune -f"
+    ]
+  },
+  "ui": {
+    "serve_host": "127.0.0.1",
+    "serve_port": 8787,
+    "status_file": "",
+    "tls_certfile": "",
+    "tls_enabled": false,
+    "tls_keyfile": ""
+  }
+}

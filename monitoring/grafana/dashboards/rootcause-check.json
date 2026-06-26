@@ -1,0 +1,95 @@
+{
+  "uid": "rootcause-check",
+  "title": "RootCause Check",
+  "tags": ["rootcause", "check"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-7d", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "check",
+        "label": "Check",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "rootcause-prometheus" },
+        "query": { "query": "label_values(rootcause_check_up, check)", "refId": "A" },
+        "refresh": 2,
+        "includeAll": false,
+        "multi": false,
+        "sort": 1,
+        "current": {}
+      },
+      {
+        "name": "host",
+        "label": "Host",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "rootcause-prometheus" },
+        "query": { "query": "label_values(rootcause_check_up{check=\"$check\"}, host)", "refId": "A" },
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "allValue": ".*",
+        "sort": 1,
+        "current": { "text": "All", "value": "$__all" }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "stat", "title": "Estado actual", "id": 1,
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "rootcause-prometheus" },
+      "fieldConfig": { "defaults": { "mappings": [ { "type": "value", "options": { "0": { "text": "FAIL", "color": "red" }, "1": { "text": "OK", "color": "green" } } } ], "color": { "mode": "thresholds" }, "thresholds": { "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] } }, "overrides": [] },
+      "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] }, "textMode": "value_and_name" },
+      "targets": [ { "refId": "A", "expr": "rootcause_check_up{check=\"$check\",host=~\"$host\"}", "legendFormat": "{{host}}", "datasource": { "type": "prometheus", "uid": "rootcause-prometheus" } } ]
+    },
+    {
+      "type": "stat", "title": "Fallos consecutivos", "id": 2,
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "rootcause-prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "thresholds" }, "thresholds": { "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 1 }, { "color": "red", "value": 5 } ] } }, "overrides": [] },
+      "options": { "colorMode": "background", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] }, "textMode": "value_and_name" },
+      "targets": [ { "refId": "A", "expr": "rootcause_check_consecutive_failures{check=\"$check\",host=~\"$host\"}", "legendFormat": "{{host}}", "datasource": { "type": "prometheus", "uid": "rootcause-prometheus" } } ]
+    },
+    {
+      "type": "stat", "title": "Pausado / Mantenimiento", "id": 3,
+      "gridPos": { "h": 5, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "rootcause-prometheus" },
+      "fieldConfig": { "defaults": { "mappings": [ { "type": "value", "options": { "0": { "text": "No", "color": "green" }, "1": { "text": "Sí", "color": "orange" } } } ], "color": { "mode": "thresholds" }, "thresholds": { "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 1 } ] } }, "overrides": [] },
+      "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] }, "textMode": "value_and_name" },
+      "targets": [
+        { "refId": "A", "expr": "rootcause_check_paused{check=\"$check\",host=~\"$host\"}", "legendFormat": "Pausado {{host}}", "datasource": { "type": "prometheus", "uid": "rootcause-prometheus" } },
+        { "refId": "B", "expr": "rootcause_check_maintenance{check=\"$check\",host=~\"$host\"}", "legendFormat": "Mantenim. {{host}}", "datasource": { "type": "prometheus", "uid": "rootcause-prometheus" } }
+      ]
+    },
+    {
+      "type": "timeseries", "title": "Ejecuciones vs fallos (por hora)", "id": 4,
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 5 },
+      "datasource": { "type": "prometheus", "uid": "rootcause-prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "bars", "fillOpacity": 40 } }, "overrides": [ { "matcher": { "id": "byRegexp", "options": ".*fallos.*" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } } ] } ] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "refId": "A", "expr": "sum by (host) (increase(rootcause_check_runs_total{check=\"$check\",host=~\"$host\"}[1h]))", "legendFormat": "ejecuciones {{host}}", "datasource": { "type": "prometheus", "uid": "rootcause-prometheus" } },
+        { "refId": "B", "expr": "sum by (host) (increase(rootcause_check_failures_total{check=\"$check\",host=~\"$host\"}[1h]))", "legendFormat": "fallos {{host}}", "datasource": { "type": "prometheus", "uid": "rootcause-prometheus" } }
+      ]
+    },
+    {
+      "type": "timeseries", "title": "Auto-fixes (por hora)", "id": 5,
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 5 },
+      "datasource": { "type": "prometheus", "uid": "rootcause-prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "bars", "fillOpacity": 40 }, "color": { "mode": "fixed", "fixedColor": "blue" } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [ { "refId": "A", "expr": "sum by (host) (increase(rootcause_check_fixed_total{check=\"$check\",host=~\"$host\"}[1h]))", "legendFormat": "fixes {{host}}", "datasource": { "type": "prometheus", "uid": "rootcause-prometheus" } } ]
+    },
+    {
+      "type": "timeseries", "title": "Fallos consecutivos (histórico)", "id": 6,
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 14 },
+      "datasource": { "type": "prometheus", "uid": "rootcause-prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10, "stepInterval": "" } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [ { "refId": "A", "expr": "rootcause_check_consecutive_failures{check=\"$check\",host=~\"$host\"}", "legendFormat": "{{host}}", "datasource": { "type": "prometheus", "uid": "rootcause-prometheus" } } ]
+    }
+  ]
+}

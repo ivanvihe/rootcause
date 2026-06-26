@@ -1,0 +1,1518 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RootCause</title>
+  <link rel="icon" href="/static/rootcause-icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar panel">
+      <div class="sidebar-top">
+        <div>
+          <p class="sidebar-label">Checks</p>
+          <h1>RootCause</h1>
+        </div>
+        <button class="icon-button" id="new-alert-button" type="button" aria-label="Add alert">+</button>
+      </div>
+
+      <div class="sidebar-overview" id="sidebar-overview"></div>
+
+      <nav class="alert-list" id="alert-list"></nav>
+
+    </aside>
+
+    <main class="workspace">
+      <section class="workspace-header panel">
+        <!-- Row 1 — global navigation (stable across the whole app) -->
+        <div class="masthead-row">
+          <button class="brand-home" id="home-button" type="button" aria-label="Go to dashboard">
+            <img class="brand-icon" src="/static/rootcause-icon.svg" alt="RootCause">
+          </button>
+          <div class="tab-row" role="tablist" aria-label="Navigation">
+            <button class="nav-button is-active" data-page="home" type="button">Dashboard</button>
+            <button class="nav-button" data-page="metrics" type="button">Observability</button>
+            <button class="nav-button" data-page="rules" type="button">Rules</button>
+            <button class="nav-button" data-page="settings" type="button">Settings</button>
+          </div>
+          <form class="header-search" id="global-search-form">
+            <button class="icon-button muted" type="submit" aria-label="Search">/</button>
+            <input id="global-search-input" type="search" placeholder="Search alerts, prompts, hosts...">
+          </form>
+          <div class="header-actions">
+            <button class="icon-button" id="activity-button" data-page="activity" type="button" aria-label="History" title="History">&#9776;</button>
+            <div class="notification-wrap">
+              <button class="icon-button" id="notifications-button" type="button" aria-label="Notifications">&#9679;</button>
+              <div class="notification-popup" id="notifications-popup"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Row 2 — context: title of the current view + its subtabs -->
+        <div class="context-row">
+          <div class="brand-lockup">
+            <p class="eyebrow" id="workspace-eyebrow">Infrastructure Autoremediation</p>
+            <div class="title-line">
+              <h2 id="workspace-title">RootCause</h2>
+              <span class="caption" id="header-status"></span>
+            </div>
+          </div>
+          <span class="page-meta caption" id="workspace-meta"></span>
+          <div class="subtab-row" id="check-subtabs" role="tablist" aria-label="Check views" style="display:none">
+            <button class="tab-button" data-tab="status" type="button">Estado</button>
+            <button class="tab-button" data-tab="config" type="button">Configuración</button>
+          </div>
+          <div class="subtab-row" id="settings-subtabs" role="tablist" aria-label="Settings sections" style="display:none">
+            <button class="tab-button" data-settings-tab="datasources" type="button">Datasources</button>
+            <button class="tab-button" data-settings-tab="webhooks" type="button">Webhooks</button>
+            <button class="tab-button" data-settings-tab="agents" type="button">Actions &amp; AI</button>
+            <button class="tab-button" data-settings-tab="hosts" type="button">Hosts</button>
+            <button class="tab-button" data-settings-tab="maintenance" type="button">Maintenance</button>
+            <button class="tab-button" data-settings-tab="mobile" type="button">Mobile</button>
+            <button class="tab-button" data-settings-tab="security" type="button">Security</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="workspace-grid">
+        <div class="main-column">
+          <section class="route-panel home-panel" id="home-view">
+            <div class="sev-summary-cards" id="sev-summary-cards"></div>
+            <article class="panel table-panel problems-panel">
+              <div class="panel-head">
+                <div>
+                  <h3 class="panel-title-lg">Problems</h3>
+                </div>
+                <div class="problems-toolbar">
+                  <button class="show-filters-button" id="problems-show-filters" type="button" aria-expanded="false">
+                    <span class="show-filters-icon">&#9662;</span> Show filters
+                  </button>
+                  <span class="caption" id="problems-count" hidden>0 problems</span>
+                </div>
+              </div>
+              <div class="problems-tabs" id="problems-sev-filters"></div>
+              <div class="table-wrap">
+                <table class="problems-table">
+                  <thead>
+                    <tr>
+                      <th>Severity</th>
+                      <th>Time</th>
+                      <th>Host</th>
+                      <th>Problem</th>
+                      <th>Source</th>
+                      <th>Duration</th>
+                      <th>Ack</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="problems-table"></tbody>
+                </table>
+              </div>
+              <div class="problems-footer" id="problems-footer"></div>
+            </article>
+          </section>
+
+          <section class="route-panel rules-panel" id="rules-view">
+            <article class="panel table-panel" id="rules-list-panel">
+              <div class="panel-head">
+                <div>
+                  <p class="panel-kicker">Rules</p>
+                  <h3>Datasource &rarr; trigger &rarr; actions</h3>
+                </div>
+                <button class="primary-button" id="rule-add-button" type="button">Add rule</button>
+              </div>
+              <div id="rules-list"></div>
+            </article>
+            <article class="panel editor-panel" id="rule-form-panel" style="display:none">
+              <div class="panel-head">
+                <div>
+                  <p class="panel-kicker">Rule</p>
+                  <h3 id="rule-form-title">Add rule</h3>
+                </div>
+                <div class="header-actions">
+                  <button class="secondary-button" id="rule-cancel-button" type="button">Cancel</button>
+                  <button class="primary-button" id="rule-save-button" type="button">Save rule</button>
+                </div>
+              </div>
+              <div id="rule-form-body"></div>
+            </article>
+          </section>
+
+          <section class="route-panel host-panel" id="host-view">
+            <div class="stats-row" id="host-summary-cards"></div>
+
+            <div class="dashboard-grid">
+              <article class="panel table-panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="panel-kicker">Host Overview</p>
+                    <h3 id="host-title">Host</h3>
+                  </div>
+                </div>
+                <div class="dashboard-metrics" id="host-overview"></div>
+              </article>
+              <article class="panel table-panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="panel-kicker">Current Metrics</p>
+                    <h3>Checks on this host</h3>
+                  </div>
+                </div>
+                <div class="dashboard-metrics" id="host-metrics"></div>
+              </article>
+            </div>
+
+            <article class="panel table-panel">
+              <div class="panel-head">
+                <div>
+                  <p class="panel-kicker">Alerts</p>
+                  <h3>Assigned to this host</h3>
+                </div>
+                <span class="caption" id="host-alerts-count">0 alerts</span>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Alert</th>
+                      <th>Status</th>
+                      <th>Detail</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="host-alerts-table"></tbody>
+                </table>
+              </div>
+            </article>
+
+            <article class="panel table-panel">
+              <div class="panel-head">
+                <div>
+                  <p class="panel-kicker">Recent Executions</p>
+                  <h3>Latest runs on this host</h3>
+                </div>
+                <span class="caption" id="host-runs-count">0 runs</span>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Time</th>
+                      <th>Alert</th>
+                      <th>Result</th>
+                      <th>Duration</th>
+                    </tr>
+                  </thead>
+                  <tbody id="host-runs-table"></tbody>
+                </table>
+              </div>
+            </article>
+
+            <div id="host-grafana-panels"></div>
+
+            <article class="panel table-panel">
+              <div class="panel-head">
+                <div>
+                  <p class="panel-kicker">External Alerts</p>
+                  <h3>Alertmanager on this host</h3>
+                </div>
+                <span class="caption" id="host-external-alerts-count">0 alerts</span>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Alert</th>
+                      <th>Severity</th>
+                      <th>State</th>
+                      <th>Started</th>
+                      <th>Summary</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="host-external-alerts-table"></tbody>
+                </table>
+              </div>
+            </article>
+          </section>
+
+          <section class="route-panel search-panel" id="search-view">
+            <article class="panel table-panel">
+              <div class="panel-head">
+                <div>
+                  <p class="panel-kicker">Search</p>
+                  <h3 id="search-results-title">Results</h3>
+                </div>
+                <span class="caption" id="search-results-count">0 results</span>
+              </div>
+              <div class="search-results" id="search-results"></div>
+            </article>
+          </section>
+
+          <section class="route-panel activity-panel" id="activity-view">
+            <div class="dashboard-cards" id="activity-cards"></div>
+
+            <article class="panel editor-panel">
+              <div class="panel-head">
+                <div>
+                  <p class="panel-kicker">Filters</p>
+                  <h3>Refine activity feed</h3>
+                </div>
+                <div class="editor-actions">
+                  <button class="secondary-button" id="activity-export-button" type="button">Export CSV</button>
+                </div>
+              </div>
+              <div class="editor-grid compact-editor-grid">
+                <label>
+                  <span>Host</span>
+                  <select id="activity-host-filter">
+                    <option value="">All hosts</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Result</span>
+                  <select id="activity-result-filter">
+                    <option value="">All results</option>
+                    <option value="pass">pass</option>
+                    <option value="failed">failed</option>
+                    <option value="fixed">fixed</option>
+                    <option value="fix_failed">fix_failed</option>
+                  </select>
+                </label>
+              </div>
+            </article>
+
+            <div class="dashboard-grid">
+              <article class="panel table-panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="panel-kicker">Recent Runs</p>
+                    <h3>RootCause execution summaries</h3>
+                  </div>
+                  <span class="caption" id="activity-runs-count">0 runs</span>
+                </div>
+                <div class="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Time</th>
+                        <th>Evaluated</th>
+                        <th>Passed</th>
+                        <th>Failed</th>
+                        <th>Fixed</th>
+                        <th>Paused</th>
+                        <th>Duration</th>
+                      </tr>
+                    </thead>
+                    <tbody id="activity-runs-table"></tbody>
+                  </table>
+                </div>
+              </article>
+
+              <article class="panel table-panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="panel-kicker">Recent Executions</p>
+                    <h3>Per-check activity feed</h3>
+                  </div>
+                  <span class="caption" id="activity-events-count">0 events</span>
+                </div>
+                <div class="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Time</th>
+                        <th>Alert</th>
+                        <th>Host</th>
+                        <th>Result</th>
+                        <th>Tokens</th>
+                        <th>Duration</th>
+                      </tr>
+                    </thead>
+                    <tbody id="activity-events-table"></tbody>
+                  </table>
+                </div>
+              </article>
+            </div>
+          </section>
+
+          <section class="route-panel alertmanager-panel" id="alertmanager-view">
+            <div id="alertmanager-cards"></div>
+
+            <article class="panel editor-panel">
+              <div class="panel-head">
+                <div>
+                  <p class="panel-kicker">Alertmanager</p>
+                  <h3>Sources</h3>
+                </div>
+                <div class="header-actions">
+                  <span class="caption" id="alertmanager-status">Not loaded</span>
+                  <button class="secondary-button" id="alertmanager-refresh-button" type="button">Refresh</button>
+                </div>
+              </div>
+              <form class="editor-form" id="alertmanager-source-form">
+                <div class="editor-grid compact-editor-grid">
+                  <label class="full-span">
+                    <span>Add Alertmanager URL</span>
+                    <input id="alertmanager-source-url" type="text" placeholder="http://alertmanager:9093">
+                    <small>Hosts with <code>alertmanager_url</code> are autodiscovered automatically. Use this to add additional instances.</small>
+                  </label>
+                  <label>
+                    <span>Label (optional)</span>
+                    <input id="alertmanager-source-name" type="text" placeholder="homelab">
+                  </label>
+                </div>
+                <div class="editor-actions">
+                  <button class="primary-button" type="submit">Add source</button>
+                  <span class="caption" id="alertmanager-source-status"></span>
+                </div>
+              </form>
+            </article>
+
+            <div id="alertmanager-sources-list"></div>
+          </section>
+
+          <section class="route-panel metrics-panel" id="metrics-view">
+            <article class="panel metrics-embed-panel">
+              <div class="panel-head">
+                <div>
+                  <p class="panel-kicker">Observability</p>
+                  <h3>Grafana dashboards</h3>
+                </div>
+                <div class="header-actions">
+                  <div class="metrics-tab-row" id="metrics-dashboard-tabs" role="tablist"></div>
+                  <select class="metrics-host-select" id="metrics-host-select" aria-label="Host"></select>
+                  <a class="secondary-button" id="metrics-open-grafana" href="#" target="_blank" rel="noopener">Open Grafana</a>
+                </div>
+              </div>
+              <div class="metrics-embed-frame-wrap">
+                <iframe id="metrics-grafana-frame" class="metrics-grafana-frame" src="about:blank" loading="lazy" allowfullscreen></iframe>
+              </div>
+            </article>
+          </section>
+
+          <section class="route-panel settings-panel" id="settings-view">
+
+            <!-- Tab: Datasources -->
+            <div class="settings-tab-panel" data-settings-panel="datasources">
+              <article class="panel table-panel" id="ds-list-panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="panel-kicker">Datasources</p>
+                    <h3>Integrations used by rules</h3>
+                  </div>
+                  <button class="primary-button" id="ds-add-button" type="button">Add datasource</button>
+                </div>
+                <div id="datasources-list"></div>
+              </article>
+              <article class="panel editor-panel" id="ds-form-panel" style="display:none">
+                <div class="panel-head">
+                  <div>
+                    <p class="panel-kicker">Datasource</p>
+                    <h3 id="ds-form-title">Add datasource</h3>
+                  </div>
+                  <div class="header-actions">
+                    <button class="secondary-button" id="ds-cancel-button" type="button">Cancel</button>
+                    <button class="primary-button" id="ds-save-button" type="button">Save</button>
+                  </div>
+                </div>
+                <div id="ds-form-body"></div>
+              </article>
+            </div>
+
+            <!-- Tab: Webhooks -->
+            <div class="settings-tab-panel" data-settings-panel="webhooks">
+              <section class="editor-card">
+                <div class="editor-card-head">
+                  <span class="editor-card-icon">
+                    <svg viewBox="0 0 24 24" fill="none"><circle cx="7" cy="7" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/><circle cx="6" cy="17" r="2.5"/><path d="M9 8l3.5 6M15 15.5H9.5M8.5 5.5A5 5 0 0 1 17 9" stroke-linecap="round"/></svg>
+                  </span>
+                  <div><h3>Webhooks &amp; Integrations</h3><p>Outbound integrations triggered by rule actions.</p></div>
+                </div>
+                <div class="editor-card-body">
+                  <article class="integration-card" id="jira-card">
+                    <div class="integration-head">
+                      <span class="integration-logo integration-logo-jira">
+                        <svg viewBox="0 0 24 24" fill="none"><path d="M11.5 2.5l9 9a1 1 0 0 1 0 1.4l-7.6 7.6a1 1 0 0 1-1.4 0l-2-2 4.6-4.6a1 1 0 0 0 0-1.4l-4.6-4.6 1.6-1.6a1 1 0 0 1 .4-.2z" stroke-linejoin="round"/></svg>
+                      </span>
+                      <div class="integration-title">
+                        <h4>Jira <span class="ds-status" id="jira-status"><span class="ds-status-dot"></span><span id="jira-status-text">Not configured</span></span></h4>
+                        <p>Create &amp; sync issues from rule problems. Tickets are deduped, commented and auto-closed.</p>
+                      </div>
+                      <label class="re-toggle integration-toggle"><input type="checkbox" id="jira-enabled"><span class="re-toggle-track"></span></label>
+                    </div>
+                    <div class="re-grid re-grid-2">
+                      <label class="re-field"><span>Base URL</span><input id="jira-base-url" type="text" placeholder="https://yourcompany.atlassian.net"></label>
+                      <label class="re-field"><span>Account email</span><input id="jira-email" type="text" placeholder="you@company.com"></label>
+                      <label class="re-field"><span>Project key</span><input id="jira-project-key" type="text" placeholder="JUNOC"></label>
+                      <label class="re-field"><span>Issue type</span><input id="jira-issue-type" type="text" placeholder="Task"></label>
+                      <label class="re-field re-field-grow"><span>API token</span><input id="jira-api-token" type="password" placeholder="Atlassian API token"></label>
+                      <label class="re-field"><span>Close transition (optional)</span><input id="jira-close-transition" type="text" placeholder="Done"></label>
+                    </div>
+                    <div class="integration-actions">
+                      <button class="ds-action" id="jira-test-button" type="button">Test connection</button>
+                      <button class="primary-button" id="jira-save-button" type="button">Save</button>
+                      <span class="caption" id="jira-save-status"></span>
+                    </div>
+                  </article>
+                </div>
+              </section>
+            </div>
+
+            <!-- Tab: Actions & AI -->
+            <div class="settings-tab-panel" data-settings-panel="agents">
+              <article class="panel editor-panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="panel-kicker">AI Agents</p>
+                    <h3>Models &amp; Cooldown</h3>
+                  </div>
+                  <span class="caption" id="agents-settings-save-status">Not saved</span>
+                </div>
+                <form class="editor-form" id="agents-settings-form">
+                  <section class="editor-section compact-section">
+                    <div class="section-head">
+                      <h4>Global agent cooldown</h4>
+                      <p>Minutes to wait before calling an agent again for the same check while it stays in FIRING state. Use 0 to disable.</p>
+                    </div>
+                    <div class="editor-grid compact-editor-grid">
+                      <label>
+                        <span>Cooldown (minutes)</span>
+                        <input id="global-agent-cooldown" type="number" min="0" step="1" value="60">
+                      </label>
+                    </div>
+                  </section>
+                  <section class="editor-section compact-section">
+                    <div class="section-head">
+                      <h4>Model per agent</h4>
+                      <p>Override the model used by each agent. Leave blank to use the default.</p>
+                    </div>
+                    <div class="editor-grid compact-editor-grid" id="agents-model-grid">
+                      <!-- populated by JS -->
+                    </div>
+                  </section>
+                </form>
+              </article>
+
+              <article class="panel editor-panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="panel-kicker">AI Pipeline</p>
+                    <h3>Analysis &rarr; Fix &rarr; Eval</h3>
+                  </div>
+                  <span class="caption" id="pipeline-save-status">Not saved</span>
+                </div>
+                <form class="editor-form" id="pipeline-settings-form">
+                  <section class="editor-section compact-section">
+                    <div class="section-head">
+                      <h4>Two-pass pipeline</h4>
+                      <p>When enabled: Sonnet analyses the failure first (diagnosis only), then Haiku executes the plan (cheaper). Falls back to single-pass if disabled.</p>
+                    </div>
+                    <div class="editor-grid compact-editor-grid">
+                      <label class="editor-checkbox full-span">
+                        <input id="pipeline-enabled" type="checkbox">
+                        <span>Enable AI pipeline globally</span>
+                      </label>
+                    </div>
+                    <div class="editor-grid compact-editor-grid" id="pipeline-stage-fields">
+                      <label>
+                        <span>Analysis model (Sonnet)</span>
+                        <input id="pipeline-analysis-model" type="text" placeholder="claude-sonnet-4-5">
+                      </label>
+                      <label>
+                        <span>Fix model (Haiku)</span>
+                        <input id="pipeline-fix-model" type="text" placeholder="claude-haiku-4-5-20251001">
+                      </label>
+                    </div>
+                  </section>
+                </form>
+              </article>
+
+              <article class="panel table-panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="panel-kicker">Agent Calls</p>
+                    <h3>Invocation Log</h3>
+                  </div>
+                  <span class="caption" id="agent-calls-count">0 calls</span>
+                </div>
+                <div class="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Time</th>
+                        <th>Check</th>
+                        <th>Target</th>
+                        <th>Stage</th>
+                        <th>Agent</th>
+                        <th>Model</th>
+                        <th>Tokens</th>
+                        <th>Duration</th>
+                        <th>Result</th>
+                      </tr>
+                    </thead>
+                    <tbody id="agent-calls-table"></tbody>
+                  </table>
+                </div>
+              </article>
+            </div>
+
+            <!-- Tab: Hosts -->
+            <div class="settings-tab-panel" data-settings-panel="hosts">
+              <article class="panel editor-panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="panel-kicker">Hosts</p>
+                    <h3>Hosts y alias</h3>
+                  </div>
+                  <div class="editor-actions">
+                    <span class="caption" id="settings-hosts-count">0 hosts</span>
+                    <button class="primary-button" id="settings-add-host" type="button">Add Host</button>
+                  </div>
+                </div>
+                <p class="field-help" style="padding:0 4px 10px">
+                  El <strong>alias</strong> es el nombre amigable que verás en los chips de los triggers.
+                  <strong>Prometheus instance</strong> es el valor de la etiqueta <code>instance</code> de este host en Prometheus
+                  (p.ej. <code>localhost</code>), usado para autocompletar <code>{instance="…"}</code> en las queries.
+                </p>
+                <div class="table-wrap">
+                  <table class="hosts-editor-table">
+                    <thead>
+                      <tr>
+                        <th>Name</th>
+                        <th>Alias</th>
+                        <th>Address</th>
+                        <th>Connection</th>
+                        <th>Prometheus URL</th>
+                        <th>Prometheus instance</th>
+                        <th>Grafana URL</th>
+                        <th>Enabled</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody id="settings-hosts-table"></tbody>
+                  </table>
+                </div>
+              </article>
+            </div>
+
+            <!-- Tab: Maintenance -->
+            <div class="settings-tab-panel" data-settings-panel="maintenance">
+              <article class="panel editor-panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="panel-kicker">Maintenance Windows</p>
+                    <h3>Planned silences</h3>
+                  </div>
+                  <span class="caption" id="maintenance-save-status">No window scheduled</span>
+                </div>
+                <form class="editor-form" id="maintenance-form">
+                  <div class="editor-grid compact-editor-grid">
+                    <label>
+                      <span>Scope</span>
+                      <select id="maintenance-scope">
+                        <option value="host">host</option>
+                        <option value="alert">alert</option>
+                      </select>
+                    </label>
+                    <label>
+                      <span>Host</span>
+                      <select id="maintenance-host">
+                        <option value="">Select host</option>
+                      </select>
+                    </label>
+                    <label>
+                      <span>Alert</span>
+                      <select id="maintenance-alert">
+                        <option value="">Select alert</option>
+                      </select>
+                    </label>
+                    <label>
+                      <span>Starts</span>
+                      <input id="maintenance-starts-at" type="datetime-local">
+                    </label>
+                    <label>
+                      <span>Ends</span>
+                      <input id="maintenance-ends-at" type="datetime-local">
+                    </label>
+                    <label class="full-span">
+                      <span>Reason</span>
+                      <input id="maintenance-reason" type="text" placeholder="Router reboot, Jellyfin migration, kernel upgrade...">
+                    </label>
+                  </div>
+                  <div class="editor-actions">
+                    <button class="primary-button" type="submit">Schedule window</button>
+                  </div>
+                </form>
+              </article>
+
+              <article class="panel table-panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="panel-kicker">Maintenance</p>
+                    <h3>Scheduled windows</h3>
+                  </div>
+                  <span class="caption" id="maintenance-count">0 windows</span>
+                </div>
+                <div class="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Scope</th>
+                        <th>Target</th>
+                        <th>Starts</th>
+                        <th>Ends</th>
+                        <th>Reason</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody id="maintenance-table"></tbody>
+                  </table>
+                </div>
+              </article>
+            </div>
+
+            <!-- Tab: Mobile -->
+            <div class="settings-tab-panel" data-settings-panel="mobile">
+              <article class="panel editor-panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="panel-kicker">Mobile Endpoint</p>
+                    <h3>Hostname, Port and TLS</h3>
+                  </div>
+                  <span class="caption" id="mobile-endpoint-save-status">Not saved yet</span>
+                </div>
+                <form class="editor-form" id="mobile-endpoint-form">
+                  <section class="editor-section compact-section">
+                    <div class="section-head">
+                      <h4>Public endpoint for the APK</h4>
+                      <p>This is the HTTPS address that Android devices should use from the Internet.</p>
+                    </div>
+                    <div class="editor-grid compact-editor-grid">
+                      <label>
+                        <span>Scheme</span>
+                        <select id="mobile-public-scheme">
+                          <option value="https">https</option>
+                          <option value="http">http</option>
+                        </select>
+                      </label>
+                      <label>
+                        <span>Hostname</span>
+                        <input id="mobile-public-hostname" type="text" placeholder="rootcause.example.com">
+                      </label>
+                      <label>
+                        <span>External port</span>
+                        <input id="mobile-public-port" type="number" min="1" max="65535" step="1" value="8443">
+                      </label>
+                    </div>
+                    <div class="section-head">
+                      <h4>Local listener on this machine</h4>
+                      <p>RootCause terminates TLS directly. Use <code>0.0.0.0:8543</code> behind your router mapping.</p>
+                    </div>
+                    <div class="editor-grid compact-editor-grid">
+                      <label>
+                        <span>Bind host</span>
+                        <input id="mobile-serve-host" type="text" placeholder="0.0.0.0">
+                      </label>
+                      <label>
+                        <span>Bind port</span>
+                        <input id="mobile-serve-port" type="number" min="1" max="65535" step="1" value="8543">
+                      </label>
+                      <label class="agent-check">
+                        <input id="mobile-tls-enabled" type="checkbox">
+                        <span>Enable TLS on RootCause itself</span>
+                      </label>
+                      <label class="full-span">
+                        <span>Certificate file</span>
+                        <input id="mobile-tls-certfile" type="text" placeholder="/etc/letsencrypt/live/rootcause.example.com/fullchain.pem">
+                      </label>
+                      <label class="full-span">
+                        <span>Private key file</span>
+                        <input id="mobile-tls-keyfile" type="text" placeholder="/etc/letsencrypt/live/rootcause.example.com/privkey.pem">
+                      </label>
+                    </div>
+                  </section>
+                </form>
+              </article>
+
+              <article class="panel editor-panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="panel-kicker">Push Notifications</p>
+                    <h3>Firebase Cloud Messaging</h3>
+                  </div>
+                  <span class="caption" id="fcm-save-status">Not saved yet</span>
+                </div>
+                <form class="editor-form" id="fcm-form">
+                  <div class="editor-grid">
+                    <label class="editor-checkbox">
+                      <input id="fcm-enabled" type="checkbox">
+                      <span>Push notifications enabled</span>
+                    </label>
+                  </div>
+                  <label class="editor-field">
+                    <span>Service Account JSON path</span>
+                    <input id="fcm-service-account-path" type="text" placeholder="/path/to/rootcause-firebase-adminsdk.json">
+                  </label>
+                  <p class="caption">Path to the Firebase service account JSON file on this server. Download it from Firebase Console → Project settings → Service accounts → Generate new private key.</p>
+                </form>
+              </article>
+
+              <article class="panel table-panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="panel-kicker">Remote Access</p>
+                    <h3>Requirements &amp; Downloads</h3>
+                  </div>
+                </div>
+                <div class="dashboard-metrics">
+                  <div class="dashboard-metric-row">
+                    <strong>HTTPS required</strong>
+                    <span>Yes</span>
+                    <small>The mobile API rejects non-HTTPS remote requests. Put RootCause behind TLS before exposing it to the Internet.</small>
+                  </div>
+                  <div class="dashboard-metric-row">
+                    <strong>Recommended endpoint</strong>
+                    <span id="mobile-public-endpoint-label">rootcause.example.com:8443</span>
+                    <small>Let's Encrypt will not validate on `8443`. Use `80`/`443` during certificate issuance or a DNS-01 challenge, then keep the APK endpoint on `8443` if you want.</small>
+                  </div>
+                  <div class="dashboard-metric-row">
+                    <strong>Android APK</strong>
+                    <span><a id="mobile-apk-download-link" href="/downloads/rootcause.apk" download>Download latest APK</a></span>
+                    <small id="mobile-apk-download-note">Served directly by RootCause from the current release build.</small>
+                  </div>
+                  <div class="dashboard-metric-row">
+                    <strong>Android onboarding</strong>
+                    <span>URL or host + key</span>
+                    <small>The app accepts a full public URL now, extracts host and port automatically, then registers the device server-side.</small>
+                  </div>
+                </div>
+              </article>
+            </div>
+
+            <!-- Tab: Security -->
+            <div class="settings-tab-panel" data-settings-panel="security">
+              <article class="panel editor-panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="panel-kicker">Mobile Security</p>
+                    <h3>API Access</h3>
+                  </div>
+                  <span class="caption" id="mobile-security-status">loading...</span>
+                </div>
+                <form class="editor-form" id="api-key-form">
+                  <section class="editor-section compact-section">
+                    <div class="section-head">
+                      <h4>Create API key</h4>
+                      <p>Keys are stored hashed on disk and scoped for the Android app.</p>
+                    </div>
+                    <div class="editor-grid compact-editor-grid">
+                      <label>
+                        <span>Name</span>
+                        <input id="api-key-name" type="text" placeholder="My Android phone">
+                      </label>
+                      <label>
+                        <span>Device limit</span>
+                        <input id="api-key-device-limit" type="number" min="1" step="1" value="3">
+                      </label>
+                      <label class="full-span">
+                        <span>Notes</span>
+                        <input id="api-key-notes" type="text" placeholder="Primary Android device">
+                      </label>
+                      <label class="full-span">
+                        <span>Allowed hosts</span>
+                        <input id="api-key-allowed-targets" type="text" placeholder="mediaserver, backupbox">
+                        <small>Optional. Leave empty for full access, or limit this key to one or more monitored hosts.</small>
+                      </label>
+                    </div>
+                    <div class="agent-check-grid compact-agent-grid" id="api-key-scopes">
+                      <label class="agent-check"><input type="checkbox" value="mobile:read" checked><span>Read dashboard</span></label>
+                      <label class="agent-check"><input type="checkbox" value="mobile:device" checked><span>Register device</span></label>
+                      <label class="agent-check"><input type="checkbox" value="mobile:ack" checked><span>Acknowledge alerts</span></label>
+                      <label class="agent-check"><input type="checkbox" value="mobile:silence" checked><span>Silence alerts</span></label>
+                      <label class="agent-check"><input type="checkbox" value="mobile:rerun" checked><span>Re-run checks</span></label>
+                    </div>
+                    <div class="editor-actions">
+                      <button class="primary-button" id="create-api-key-button" type="submit">Generate API key</button>
+                      <span class="caption" id="api-key-create-status">No key generated yet</span>
+                    </div>
+                    <div class="json-preview" id="api-key-created-panel" style="display:none;">
+                      <div class="panel-head compact">
+                        <h3>New API key</h3>
+                        <button class="secondary-button" id="copy-api-key-button" type="button">Copy</button>
+                      </div>
+                      <pre id="api-key-created-value"></pre>
+                    </div>
+                  </section>
+                </form>
+              </article>
+
+              <article class="panel table-panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="panel-kicker">API Keys</p>
+                    <h3>Issued Keys</h3>
+                  </div>
+                  <span class="caption" id="api-keys-count">0 keys</span>
+                </div>
+                <div class="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Name</th>
+                        <th>Prefix</th>
+                        <th>Allowed hosts</th>
+                        <th>Scopes</th>
+                        <th>Devices</th>
+                        <th>Last used</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody id="api-keys-table"></tbody>
+                  </table>
+                </div>
+              </article>
+
+              <article class="panel table-panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="panel-kicker">Connected Devices</p>
+                    <h3>Mobile Clients</h3>
+                  </div>
+                  <span class="caption" id="mobile-devices-count">0 devices</span>
+                </div>
+                <div class="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Device</th>
+                        <th>Platform</th>
+                        <th>API key</th>
+                        <th>Last seen</th>
+                        <th>Remote</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody id="mobile-devices-table"></tbody>
+                  </table>
+                </div>
+                <div class="editor-actions">
+                  <button class="secondary-button" id="test-push-button" type="button">Send test push</button>
+                  <span class="caption" id="test-push-status"></span>
+                </div>
+              </article>
+            </div>
+
+            <!-- Tab: Check Settings -->
+            <div class="settings-tab-panel" data-settings-panel="check-settings">
+              <article class="panel table-panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="panel-kicker">Check Settings</p>
+                    <h3>Enable / Disable checks</h3>
+                  </div>
+                  <span class="caption" id="check-settings-count">0 checks</span>
+                </div>
+                <div class="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Check</th>
+                        <th>Type</th>
+                        <th>Schedule</th>
+                        <th style="text-align:center">Enabled</th>
+                      </tr>
+                    </thead>
+                    <tbody id="check-settings-table"></tbody>
+                  </table>
+                </div>
+              </article>
+            </div>
+
+          </section>
+
+          <div class="route-panel alert-route" id="alert-view">
+          <div class="tab-panel is-active" data-panel="status">
+            <div id="summary-cards"></div>
+
+            <div id="check-grafana-panels"></div>
+
+            <article class="panel table-panel">
+              <div class="panel-head">
+                <div>
+                  <p class="panel-kicker">Recent Executions</p>
+                  <h3 id="executions-title">Latest runs</h3>
+                </div>
+                <span class="caption" id="execution-count">0 runs</span>
+              </div>
+
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Time</th>
+                      <th>Result</th>
+                      <th>Duration</th>
+                      <th>Host</th>
+                    </tr>
+                  </thead>
+                  <tbody id="executions-table"></tbody>
+                </table>
+              </div>
+            </article>
+          </div>
+
+          <div class="tab-panel" data-panel="triggers">
+            <article class="panel editor-panel">
+              <div class="panel-head">
+                <div>
+                  <p class="panel-kicker">Triggers</p>
+                  <h3>Alert detection</h3>
+                </div>
+                <div class="editor-actions">
+                  <span class="caption" id="save-status">Autosave idle</span>
+                  <button class="secondary-button" id="lock-alert-button" type="button">🔒 Lock</button>
+                  <button class="secondary-button" id="rearm-alert-button" type="button">Rearm</button>
+                  <button class="danger-button" id="delete-alert-button" type="button">Delete</button>
+                </div>
+              </div>
+
+              <form class="editor-form" id="alert-editor-form">
+                <section class="editor-section">
+                  <div class="section-head">
+                    <h4>General</h4>
+                    <p>Ajustes del check: nombre, descripción, frecuencia, severidad y timeout.</p>
+                  </div>
+
+                  <div class="editor-grid">
+                    <label>
+                      <span>Name</span>
+                      <input id="edit-name" type="text">
+                    </label>
+                    <label>
+                      <span>Description</span>
+                      <input id="edit-description" type="text">
+                    </label>
+                    <label>
+                      <span>Schedule (cron)</span>
+                      <input id="edit-schedule" type="text" placeholder="*/5 * * * *">
+                      <small class="field-help">Five-field cron format: minute hour day month weekday</small>
+                    </label>
+                    <label>
+                      <span>Severity</span>
+                      <select id="edit-severity">
+                        <option value="info">info</option>
+                        <option value="warning">warning</option>
+                        <option value="high">high</option>
+                        <option value="critical">critical</option>
+                      </select>
+                    </label>
+                    <label>
+                      <span>Timeout (s)</span>
+                      <input id="edit-timeout" type="number" min="1" step="1">
+                    </label>
+                    <label class="editor-checkbox">
+                      <input id="edit-notifications" type="checkbox">
+                      <span>Notifications enabled</span>
+                    </label>
+                    <label class="editor-checkbox">
+                      <input id="edit-mobile-visible" type="checkbox">
+                      <span>Show in mobile app</span>
+                    </label>
+                    <label class="editor-checkbox">
+                      <input id="edit-mobile-notify" type="checkbox">
+                      <span>Push notification on mobile</span>
+                    </label>
+                    <div class="full-span">
+                      <span class="field-label">Quick schedule</span>
+                      <div class="quick-buttons">
+                        <button class="secondary-button quick-schedule-button" data-cron="*/5 * * * *" type="button">5mins</button>
+                        <button class="secondary-button quick-schedule-button" data-cron="*/30 * * * *" type="button">30mins</button>
+                        <button class="secondary-button quick-schedule-button" data-cron="0 * * * *" type="button">hourly</button>
+                        <button class="secondary-button quick-schedule-button" data-cron="0 3 * * *" type="button">daily 03:00</button>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                <section class="editor-section">
+                  <div class="section-head">
+                    <h4>Triggers</h4>
+                    <p>Condiciones que evalúa el check. Cada fila es un trigger — pulsa para configurarlo. <code>any</code> = salta si cualquiera detecta problema; <code>all</code> = solo si todas.</p>
+                  </div>
+                  <div class="editor-grid">
+                    <label>
+                      <span>Combinar triggers (match)</span>
+                      <select id="edit-trigger-match">
+                        <option value="any">any — salta si cualquiera</option>
+                        <option value="all">all — solo si todas</option>
+                      </select>
+                    </label>
+                  </div>
+                  <div class="chain-list">
+                    <details class="chain-card" id="primary-trigger-card" open>
+                      <summary class="chain-card-head"><span class="chain-badge">1) Trigger primario</span><span class="chain-summary-hint">opciones ▾</span></summary>
+                      <div class="chain-card-body editor-grid">
+                    <label>
+                      <span>Type</span>
+                      <select id="edit-type">
+                        <option value="ssh">ssh</option>
+                        <option value="http">http</option>
+                        <option value="prometheus_query">prometheus_query</option>
+                        <option value="prometheus_targets">prometheus_targets</option>
+                        <option value="alertmanager">alertmanager</option>
+                        <option value="composite">composite</option>
+                        <option value="local">local</option>
+                        <option value="network_ping">network_ping</option>
+                      </select>
+                    </label>
+                    <label class="editor-checkbox">
+                      <input id="edit-expect-empty" type="checkbox">
+                      <span>Expect empty output</span>
+                    </label>
+                    <label class="editor-checkbox">
+                      <input id="edit-expect-nonempty" type="checkbox">
+                      <span>Expect non-empty output</span>
+                    </label>
+                    <label class="editor-checkbox">
+                      <input id="edit-parse-cert-days" type="checkbox">
+                      <span>Parse certificate days</span>
+                    </label>
+                    <label>
+                      <span>Certificate warning days</span>
+                      <input id="edit-cert-warn-days" type="number" min="1" step="1">
+                    </label>
+                    <label class="full-span">
+                      <span>Command</span>
+                      <textarea id="edit-command" rows="3" placeholder="docker ps --filter ..."></textarea>
+                    </label>
+                    <label class="full-span" id="ssh-eval-field">
+                      <span>Cómo evaluar la salida</span>
+                      <select id="edit-ssh-eval">
+                        <option value="none">Solo comando (OK si termina con éxito)</option>
+                        <option value="nonempty">La salida NO debe estar vacía</option>
+                        <option value="empty">La salida debe estar vacía</option>
+                        <option value="contains">La salida contiene…</option>
+                        <option value="not_contains">La salida NO contiene…</option>
+                      </select>
+                    </label>
+                    <label class="full-span" id="ssh-match-text-field">
+                      <span>Texto a buscar en la salida</span>
+                      <input id="edit-ssh-match-text" type="text" placeholder='ej: unhealthy · Down · ERROR'>
+                    </label>
+                    <label class="full-span">
+                      <span>URL</span>
+                      <input id="edit-url" type="text" placeholder="http://{host[address]}:8096/health">
+                    </label>
+                    <label class="full-span" id="http-expect-field">
+                      <span>La respuesta debe contener (texto)</span>
+                      <input id="edit-expect-contains" type="text" placeholder='ej: "status":"ok"  ·  vacío = solo comprueba HTTP 200'>
+                    </label>
+                    <label class="full-span">
+                      <span>Query (PromQL — condición de disparo, ej: <code>node_load5 &gt; 10</code>)</span>
+                      <textarea id="edit-query" rows="3" placeholder="node_load5 > 10"></textarea>
+                    </label>
+                    <div class="full-span" id="prom-preview" style="display:none">
+                      <div class="prom-hosts-row">
+                        <span class="prom-hosts-label">Hosts:</span>
+                        <div id="prom-hosts" class="prom-hosts"></div>
+                      </div>
+                      <div class="prom-preview-head">
+                        <span class="prom-preview-title">Vista previa en vivo</span>
+                        <span id="prom-preview-status" class="prom-status"></span>
+                        <select id="prom-preview-range" title="Rango temporal">
+                          <option value="15">15m</option>
+                          <option value="60" selected>1h</option>
+                          <option value="360">6h</option>
+                          <option value="1440">24h</option>
+                        </select>
+                        <button type="button" class="secondary-button" id="prom-preview-refresh" title="Actualizar">↻</button>
+                      </div>
+                      <div id="prom-preview-chart" class="prom-chart"></div>
+                      <div id="prom-preview-legend" class="prom-legend"></div>
+                    </div>
+                    <div class="full-span type-fields-alertmanager" id="alertmanager-type-fields" style="display:none">
+                      <div class="editor-grid">
+                        <label class="full-span">
+                          <span>Alertmanager URL</span>
+                          <input id="edit-alertmanager-url" type="text" placeholder="http://alertmanager:9093 (leave blank to use host's alertmanager_url)">
+                        </label>
+                        <label class="full-span">
+                          <span>Alert filter (JSON)</span>
+                          <input id="edit-alertmanager-filter" type="text" placeholder='{"alertname":"HighCPU"}'>
+                          <small class="field-help">Label key/value pairs to filter alerts. E.g. {"alertname":"NodeDown","severity":"critical"}</small>
+                        </label>
+                        <label class="editor-checkbox">
+                          <input id="edit-filter-silenced" type="checkbox" checked>
+                          <span>Ignore silenced alerts</span>
+                        </label>
+                        <label class="editor-checkbox">
+                          <input id="edit-filter-inhibited" type="checkbox" checked>
+                          <span>Ignore inhibited alerts</span>
+                        </label>
+                      </div>
+                    </div>
+                    <label>
+                      <span>Threshold</span>
+                      <input id="edit-threshold" type="number" step="any">
+                    </label>
+                    <label>
+                      <span>Threshold Query</span>
+                      <input id="edit-threshold-query" type="text">
+                    </label>
+                    <label>
+                      <span>Comparator</span>
+                      <select id="edit-comparator">
+                        <option value="">none</option>
+                        <option value="gt">gt</option>
+                        <option value="lt">lt</option>
+                      </select>
+                    </label>
+                    <label>
+                      <span>Accept Codes</span>
+                      <input id="edit-accept-codes" type="text" placeholder="200,204,301">
+                    </label>
+                    <label>
+                      <span>Ignore Targets</span>
+                      <input id="edit-ignore-targets" type="text" placeholder="adguard,radarr">
+                    </label>
+                    <label class="full-span">
+                      <span>Composite Steps JSON</span>
+                      <textarea id="edit-steps" rows="8" placeholder='[{"type":"ssh","command":"docker ps ..."}]'></textarea>
+                    </label>
+                    <label class="full-span type-fields-network_ping" id="ping-targets-field" style="display:none">
+                      <span>Ping targets JSON</span>
+                      <textarea id="edit-ping-targets" rows="6" placeholder='[{"label":"internet","address":"8.8.8.8"},{"label":"router","address":"192.168.1.1"}]'></textarea>
+                      <small class="field-help">mtr/ping a cada destino. Umbrales opcionales por destino: loss_threshold_pct, latency_factor, latency_floor_ms, hop_delta.</small>
+                    </label>
+                      </div>
+                    </details>
+                    <div id="extra-triggers-list"></div>
+                  </div>
+                  <div class="add-menu-wrap">
+                    <button class="secondary-button" id="add-trigger-button" type="button">+ Add trigger ▾</button>
+                    <div class="add-menu" id="add-trigger-menu" hidden>
+                      <button type="button" class="add-menu-item" data-ttype="ssh">ssh</button>
+                      <button type="button" class="add-menu-item" data-ttype="local">local</button>
+                      <button type="button" class="add-menu-item" data-ttype="http">http</button>
+                      <button type="button" class="add-menu-item" data-ttype="prometheus_query">prometheus_query</button>
+                      <button type="button" class="add-menu-item" data-ttype="network_ping">network_ping</button>
+                    </div>
+                  </div>
+                </section>
+              </form>
+            </article>
+          </div>
+
+          <div class="tab-panel" data-panel="actions">
+            <article class="panel editor-panel">
+              <div class="panel-head">
+                <div>
+                  <p class="panel-kicker">Actions</p>
+                  <h3>Remediation workflow</h3>
+                </div>
+                <div class="editor-actions">
+                  <span class="caption">Execution controls</span>
+                </div>
+              </div>
+
+              <form class="editor-form actions-form">
+                <section class="editor-section">
+                  <div class="section-head">
+                    <h4>Actions</h4>
+                    <p>Lista ordenada de acciones (se ejecutan de arriba a abajo cuando el check salta). Pulsa cada fila para configurarla. La acción <strong>AI Agent</strong> contiene la configuración de remediación con IA (agentes, tokens, fix prompt, emergency actions).</p>
+                  </div>
+                  <div id="actions-chain-list" class="chain-list"></div>
+                  <div class="add-menu-wrap">
+                    <button class="secondary-button" id="add-action-button" type="button">+ Add action ▾</button>
+                    <div class="add-menu" id="add-action-menu" hidden>
+                      <button type="button" class="add-menu-item" data-type="notification">Notification</button>
+                      <button type="button" class="add-menu-item" data-type="ai_agent">AI Agent</button>
+                      <button type="button" class="add-menu-item" data-type="bash">Bash command</button>
+                      <button type="button" class="add-menu-item" data-type="docker">Docker (restart/start/stop)</button>
+                      <button type="button" class="add-menu-item" data-type="systemd">systemd unit</button>
+                      <button type="button" class="add-menu-item" data-type="http">HTTP / webhook</button>
+                      <button type="button" class="add-menu-item" data-type="wait">Wait (delay)</button>
+                      <button type="button" class="add-menu-item" data-type="recheck">Recheck triggers</button>
+                      <button type="button" class="add-menu-item" data-type="silence">Silence / snooze</button>
+                      <button type="button" class="add-menu-item" data-type="escalate">Escalate</button>
+                      <button type="button" class="add-menu-item" data-type="noop">No-op (solo datos)</button>
+                    </div>
+                  </div>
+                </section>
+
+                <div id="ai-agent-config-holder" hidden>
+                <div id="ai-agent-config" class="ai-agent-config">
+                <div class="actions-top-grid">
+                  <section class="editor-section compact-section">
+                    <div class="section-head">
+                      <h4>Agents</h4>
+                      <p>Select the AI agents that are allowed to work on this alert.</p>
+                    </div>
+                    <div class="agent-check-grid compact-agent-grid">
+                      <label class="agent-check">
+                        <input id="agent-claude" type="checkbox">
+                        <span>Claude</span>
+                      </label>
+                      <label class="agent-check">
+                        <input id="agent-codex" type="checkbox">
+                        <span>Codex</span>
+                      </label>
+                      <label class="agent-check">
+                        <input id="agent-opencode" type="checkbox">
+                        <span>OpenCode</span>
+                      </label>
+                      <label class="agent-check">
+                        <input id="agent-custom-enabled" type="checkbox">
+                        <span>Run...</span>
+                      </label>
+                    </div>
+
+                    <div class="editor-grid compact-editor-grid" id="custom-agent-fields">
+                      <label>
+                        <span>Custom agent name</span>
+                        <input id="custom-agent-name" type="text" placeholder="my-agent">
+                      </label>
+                      <label class="full-span">
+                        <span>Command template</span>
+                        <input id="custom-agent-command" type="text" placeholder="my-agent --prompt {prompt}">
+                        <small class="field-help">Use <code>{prompt}</code> where the remediation prompt should be injected.</small>
+                      </label>
+                    </div>
+                  </section>
+
+                  <section class="editor-section compact-section">
+                    <div class="section-head">
+                      <h4>AI Remediation</h4>
+                      <p>Control the prompt and stop executions before token usage becomes excessive.</p>
+                    </div>
+
+                    <div class="editor-grid token-grid">
+                    <label class="editor-checkbox">
+                      <input id="token-protection-enabled" type="checkbox">
+                      <span>Tokens usage protection</span>
+                    </label>
+                    <div class="inline-token-row">
+                      <label class="inline-token-field">
+                        <span>Max prompt tokens</span>
+                        <input id="token-max-prompt" type="number" min="1" step="1">
+                      </label>
+                      <label class="inline-token-field">
+                        <span>Max response tokens</span>
+                        <input id="token-max-response" type="number" min="1" step="1">
+                      </label>
+                    </div>
+                    <div class="inline-token-row">
+                      <label class="inline-token-field">
+                        <span>Max total tokens per run</span>
+                        <input id="token-max-total" type="number" min="1" step="1">
+                      </label>
+                    </div>
+                    <label class="editor-checkbox full-span">
+                      <input id="token-notify-stop" type="checkbox">
+                      <span>Notify when token protection stops execution</span>
+                      </label>
+                    </div>
+                  </section>
+                </div>
+
+                <section class="editor-section prompt-section">
+                  <div class="section-head">
+                    <h4>Fix Prompt</h4>
+                    <p>Main instruction block for the AI agent.</p>
+                  </div>
+                  <label class="full-span">
+                    <textarea id="edit-fix-prompt" rows="14" placeholder="Prompt used when an AI agent tries to remediate"></textarea>
+                  </label>
+                </section>
+
+                <section class="editor-section compact-section">
+                  <div class="section-head">
+                    <h4>Emergency Actions</h4>
+                    <p>Safe fallback commands when no agent is available or token protection stops execution.</p>
+                  </div>
+                  <label class="full-span">
+                    <span>Emergency Actions JSON</span>
+                    <textarea id="edit-emergency-actions" rows="10" placeholder='[{"name":"restart_stack","when":["no_agent","no_internet"],"command":"docker compose up -d"}]'></textarea>
+                  </label>
+                </section>
+                </div>
+                </div>
+              </form>
+
+              <details class="json-preview">
+                <summary class="panel-head compact"><h3>JSON Preview</h3><span class="chain-summary-hint">ver ▾</span></summary>
+                <pre id="json-preview"></pre>
+              </details>
+            </article>
+          </div>
+
+          <div class="tab-panel" data-panel="targets">
+            <article class="panel editor-panel">
+              <div class="panel-head">
+                <div>
+                  <p class="panel-kicker">Targets</p>
+                  <h3>Target assignment and host inventory</h3>
+                </div>
+                <div class="editor-actions">
+                  <span class="caption" id="targets-save-status">Autosave idle</span>
+                  <span class="caption" id="hosts-count">0 hosts</span>
+                  <button class="primary-button" id="new-host-button" type="button">Add Host</button>
+                </div>
+              </div>
+
+              <section class="editor-section compact-section">
+                <div class="section-head">
+                  <h4>Assigned targets</h4>
+                  <p>Select which hosts this alert will check and remediate.</p>
+                </div>
+                <div id="edit-targets" class="choice-list"></div>
+              </section>
+
+              <div class="table-wrap">
+                <table class="hosts-editor-table">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Address</th>
+                      <th>SSH user</th>
+                      <th>SSH port</th>
+                      <th>SSH key path</th>
+                      <th>Connection</th>
+                      <th>Workdir</th>
+                      <th>Prometheus URL</th>
+                      <th>Alertmanager URL</th>
+                      <th>Grafana URL</th>
+                      <th>Pushgateway URL</th>
+                      <th>Role</th>
+                      <th>Enabled</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody id="hosts-edit-table"></tbody>
+                </table>
+              </div>
+            </article>
+          </div>
+
+          <div class="tab-panel" data-panel="rules">
+            <article class="panel editor-panel">
+              <div class="panel-head">
+                <div>
+                  <p class="panel-kicker">Rules</p>
+                  <h3>Per-host parameters &amp; excludes</h3>
+                </div>
+                <span class="caption">Customize check behavior per host</span>
+              </div>
+
+              <section class="editor-section excludes-section">
+                <div class="section-head">
+                  <h4>Per-host Excludes</h4>
+                  <p>Exclude filesystem paths or regex patterns from this check, per host. Add <code class="inline-code">&lt;&lt;exclude&gt;&gt;</code> in the command to apply them.</p>
+                </div>
+                <div id="excludes-host-rows" class="excludes-host-rows"></div>
+              </section>
+
+              <section class="editor-section preview-section">
+                <div class="section-head">
+                  <h4>Diagnostic Preview</h4>
+                  <p>See what this check examines on each host. Hover a line and click <strong>+</strong> to add it directly to excludes.</p>
+                </div>
+                <label>
+                  <span>Preview command <em style="font-weight:normal;opacity:.6">(optional — overrides main command for this view only)</em></span>
+                  <input type="text" id="edit-preview-command" style="font-family:'JetBrains Mono','Fira Code',monospace;font-size:12px"
+                         placeholder="e.g. df --output=target,pcent | tail -n +2 | sort -k2 -n"
+                         autocomplete="off" spellcheck="false">
+                </label>
+                <div id="preview-host-rows" class="preview-host-rows"></div>
+              </section>
+            </article>
+          </div>
+
+          </div>
+        </div>
+
+        <aside class="side-column" id="alert-side-column">
+          <article class="panel stat-card stat-card-compact" id="run-metrics-panel">
+            <!-- populated by JS -->
+          </article>
+
+          <article class="panel preview-panel">
+            <div class="panel-head">
+              <div>
+                <p class="panel-kicker">Edit Alert</p>
+                <h3>Preview</h3>
+              </div>
+              <span class="code-pill">&lt;/&gt;</span>
+            </div>
+
+            <div class="preview-stack">
+              <div class="preview-row">
+                <span>Name</span>
+                <strong id="preview-name">-</strong>
+              </div>
+              <div class="preview-row">
+                <span>Command</span>
+                <strong id="preview-command">-</strong>
+              </div>
+              <div class="preview-row">
+                <span>Schedule</span>
+                <strong id="preview-schedule">-</strong>
+              </div>
+              <div class="preview-row">
+                <span>Severity</span>
+                <strong id="preview-severity">-</strong>
+              </div>
+              <div class="preview-row">
+                <span>Timeout</span>
+                <strong id="preview-timeout">-</strong>
+              </div>
+              <div class="preview-row">
+                <span>Notifications</span>
+                <strong id="preview-notifications">-</strong>
+              </div>
+            </div>
+
+            <pre class="preview-code" id="preview-json"></pre>
+          </article>
+
+          <article class="panel preview-panel">
+            <div class="panel-head">
+              <div>
+                <p class="panel-kicker">Targets</p>
+                <h3>Preview</h3>
+              </div>
+              <span class="caption" id="hosts-preview-count">0</span>
+            </div>
+
+            <div class="mini-table" id="hosts-preview"></div>
+          </article>
+        </aside>
+      </section>
+    </main>
+  </div>
+
+  <template id="alert-item-template">
+    <button class="alert-item" type="button">
+      <div>
+        <strong class="alert-item-name"></strong>
+        <p class="alert-item-meta"></p>
+      </div>
+      <div class="alert-item-right">
+        <span class="alert-item-status"></span>
+        <span class="alert-item-menu">•••</span>
+      </div>
+    </button>
+  </template>
+
+  <div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="false"></div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

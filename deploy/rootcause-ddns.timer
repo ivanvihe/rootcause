@@ -1,0 +1,10 @@
+[Unit]
+Description=Periodically refresh deSEC dynamic DNS for RootCause
+
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec=5m
+Unit=rootcause-ddns.service
+
+[Install]
+WantedBy=timers.target

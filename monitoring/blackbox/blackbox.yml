@@ -1,0 +1,49 @@
+# Blackbox exporter modules used by the migrated native checks.
+# http_2xx   — replaces native `http` checks (service /health endpoints).
+# tcp_connect— replaces port-reachability checks.
+# icmp       — replaces the network_ping reachability portion.
+# http_2xx_tls / tcp_tls — expose probe_ssl_earliest_cert_expiry for cert checks.
+modules:
+  http_2xx:
+    prober: http
+    timeout: 10s
+    http:
+      valid_status_codes: []          # any 2xx
+      method: GET
+      preferred_ip_protocol: ip4
+      fail_if_not_ssl: false
+
+  # Web-reachability: a redirect (e.g. nginx :80 → https) or a 401/403/404 still
+  # means the server is up and answering, matching the original checks' codes.
+  http_web:
+    prober: http
+    timeout: 10s
+    http:
+      valid_status_codes: [200, 201, 204, 301, 302, 303, 307, 308, 401, 403, 404]
+      method: GET
+      preferred_ip_protocol: ip4
+      follow_redirects: false
+      fail_if_not_ssl: false
+
+  http_2xx_tls:
+    prober: http
+    timeout: 10s
+    http:
+      method: GET
+      fail_if_not_ssl: true           # also yields probe_ssl_earliest_cert_expiry
+
+  tcp_connect:
+    prober: tcp
+    timeout: 5s
+
+  tcp_tls:
+    prober: tcp
+    timeout: 5s
+    tcp:
+      tls: true                       # cert expiry for raw TLS ports
+
+  icmp:
+    prober: icmp
+    timeout: 5s
+    icmp:
+      preferred_ip_protocol: ip4
