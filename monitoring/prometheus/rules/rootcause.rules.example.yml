@@ -3,13 +3,10 @@
 # This file ships EMPTY on purpose — RootCause is meant to start with no rules
 # so you can add only the ones that match your environment.
 #
-# Two ways to add rules:
-#   1. Write Prometheus alerting rules here by hand (see the example below).
-#   2. Define checks in checks.json and generate rules from them with
-#        python tools/migrate_checks_to_rules.py
+# Write Prometheus alerting rules here by hand (see the example below).
 #
 # Each alert should carry a `rootcause_check` label so RootCause can correlate
-# the firing alert with a remediation rule in checks.json.
+# the firing alert with a remediation rule in your config (rootcause.db).
 #
 # groups:
 #   - name: rootcause

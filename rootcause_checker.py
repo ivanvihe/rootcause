@@ -37,6 +37,7 @@ from urllib.parse import parse_qs, urlsplit
 import requests
 import urllib3
 
+import rootcause_db
 import rootcause_problems
 from rootcause_problems import Problem, ProblemStore
 
@@ -218,6 +219,11 @@ def utc_iso() -> str:
 
 
 def load_json_file(path: Path, default: Any = None) -> Any:
+    # Config and runtime state live in SQLite (rootcause.db) now; the legacy
+    # JSON paths are kept only as stable document identities — see rootcause_db.
+    doc = rootcause_db.doc_name_for(path)
+    if doc is not None:
+        return rootcause_db.load_doc(doc, default)
     if not path.exists():
         return {} if default is None else default
     try:
@@ -235,6 +241,10 @@ def load_json_file(path: Path, default: Any = None) -> Any:
 
 
 def save_json_file(path: Path, data: Any) -> None:
+    doc = rootcause_db.doc_name_for(path)
+    if doc is not None:
+        rootcause_db.save_doc(doc, data)
+        return
     tmp = path.with_suffix(".tmp")
     with open(tmp, "w", encoding="utf-8") as handle:
         json.dump(data, handle, indent=2, sort_keys=True)
@@ -2117,16 +2127,12 @@ def run_self_diagnostic(config: dict[str, Any]) -> tuple[bool, str]:
                 if not ok:
                     issues.append(f"host '{hname}': SSH unreachable — {out[:80]}")
 
-    # ── 4. State / status files writable ──────────────────────────────────
-    ui_cfg = config.get("ui", {})
-    status_path = Path(ui_cfg.get("status_file", str(STATUS_FILE)))
-    for fpath, label in [(STATE_FILE, "state"), (status_path, "status")]:
-        try:
-            fpath.touch(exist_ok=True)
-            with open(fpath, "a"):
-                pass
-        except OSError as exc:
-            issues.append(f"{label} file not writable: {exc}")
+    # ── 4. SQLite store writable ──────────────────────────────────────────
+    try:
+        rootcause_db.save_doc("_diag", {"ts": utc_iso()})
+        rootcause_db.delete_doc("_diag")
+    except Exception as exc:
+        issues.append(f"sqlite store ({rootcause_db.DB_FILE.name}) not writable: {exc}")
 
     # ── 5. Scheduled runner exists (crontab OR systemd timer) ──────────────
     _, cron_out = run_local("crontab -l 2>/dev/null | grep rootcause_checker", timeout=5)
@@ -4244,7 +4250,7 @@ def refresh_status_snapshot_config(config: dict[str, Any]) -> dict[str, Any]:
     normalized = normalize_config(config)
     rules = compile_rules(normalized)
     status_path = Path(normalized.get("ui", {}).get("status_file", str(STATUS_FILE)))
-    report = load_json_file(status_path, default={}) if status_path.exists() else {}
+    report = load_json_file(status_path, default={})
     report["alert_rules"] = build_rule_catalog(normalized, rules)
     report["host_catalog"] = normalized.get("hosts", {})
     report["datasources"] = [sanitize_datasource(ds) for ds in get_datasources(normalized)]
@@ -4260,7 +4266,7 @@ def refresh_status_snapshot_config(config: dict[str, Any]) -> dict[str, Any]:
 def refresh_status_snapshot_state(config: dict[str, Any], state: dict[str, Any]) -> dict[str, Any]:
     normalized = normalize_config(config)
     status_path = Path(normalized.get("ui", {}).get("status_file", str(STATUS_FILE)))
-    report = load_json_file(status_path, default={}) if status_path.exists() else {}
+    report = load_json_file(status_path, default={})
     checks = report.get("checks", [])
     for item in checks:
         key = str((item.get("alert_state") or {}).get("key") or "")
@@ -5407,7 +5413,7 @@ def run_checks(
     history = load_history()
     rules = compile_rules(config)
     status_path = Path(config.get("ui", {}).get("status_file", str(STATUS_FILE)))
-    previous_status = load_json_file(status_path, default={}) if status_path.exists() else {}
+    previous_status = load_json_file(status_path, default={})
     previous_checks_by_key: dict[str, dict[str, Any]] = {
         item.get("alert_state", {}).get("key"): item
         for item in previous_status.get("checks", [])
@@ -7351,11 +7357,33 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def ensure_db_seeded(config_path: Path) -> None:
+    """Initialize rootcause.db and seed a fresh install with defaults + demo data.
+
+    init_db() imports any legacy JSON files (an existing install keeps its config
+    and state). If after that the config document is still empty — a brand-new
+    install — seed it from checks.example.json run through normalize_config, so
+    SQLite ships with the default options AND the demo rules / check_templates.
+    """
+    rootcause_db.init_db()
+    doc = rootcause_db.doc_name_for(config_path)
+    if doc is None or rootcause_db.doc_exists(doc):
+        return
+    example = SCRIPT_DIR / "checks.example.json"
+    try:
+        seed = json.loads(example.read_text(encoding="utf-8")) if example.exists() else {}
+    except (json.JSONDecodeError, OSError):
+        seed = {}
+    save_json_file(config_path, normalize_config(seed))
+    log.info("Seeded %s with default options + demo rules from checks.example.json", rootcause_db.DB_FILE.name)
+
+
 def main() -> None:
     args = parse_args()
     if args.safety_hook:
         sys.exit(run_safety_hook())
     config_path = Path(args.config)
+    ensure_db_seeded(config_path)
     raw_config = load_json_file(config_path, default={})
     changed = ensure_alert_ids(raw_config)
     # One-shot migration to the datasource/rules + orchestrator model.

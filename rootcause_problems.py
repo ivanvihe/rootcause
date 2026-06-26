@@ -19,6 +19,8 @@ import hashlib
 import json
 import re
 from abc import ABC, abstractmethod
+
+import rootcause_db
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -408,19 +410,29 @@ class ProblemStore:
         self.path = Path(path)
 
     # ── persistence ──────────────────────────────────────────────────────────
+    # Problems live in SQLite (rootcause.db) now; self.path is kept only as the
+    # stable document identity for the kv store — see rootcause_db.
     def _load(self) -> dict[str, Any]:
-        if not self.path.exists():
+        doc = rootcause_db.doc_name_for(self.path)
+        if doc is not None:
+            data = rootcause_db.load_doc(doc, {"active": {}, "history": []})
+        elif not self.path.exists():
             return {"active": {}, "history": []}
-        try:
-            with open(self.path, encoding="utf-8") as handle:
-                data = json.load(handle)
-        except (json.JSONDecodeError, OSError):
-            return {"active": {}, "history": []}
+        else:
+            try:
+                with open(self.path, encoding="utf-8") as handle:
+                    data = json.load(handle)
+            except (json.JSONDecodeError, OSError):
+                return {"active": {}, "history": []}
         data.setdefault("active", {})
         data.setdefault("history", [])
         return data
 
     def _save(self, data: dict[str, Any]) -> None:
+        doc = rootcause_db.doc_name_for(self.path)
+        if doc is not None:
+            rootcause_db.save_doc(doc, data)
+            return
         tmp = self.path.with_suffix(".tmp")
         with open(tmp, "w", encoding="utf-8") as handle:
             json.dump(data, handle, indent=2, sort_keys=True)
