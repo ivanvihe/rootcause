@@ -1,16 +1,20 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="RootCause icon">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#2f80ff"/>
-      <stop offset="100%" stop-color="#37c978"/>
-    </linearGradient>
-    <linearGradient id="pulse" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%" stop-color="#f2f7ff"/>
-      <stop offset="100%" stop-color="#c8e7ff"/>
+    <linearGradient id="rc" x1="0" y1="0" x2="0.35" y2="1">
+      <stop offset="0%" stop-color="#ffa31e"/>
+      <stop offset="45%" stop-color="#ff6a1e"/>
+      <stop offset="100%" stop-color="#f5301d"/>
     </linearGradient>
   </defs>
-  <rect x="6" y="6" width="52" height="52" rx="14" fill="#091320"/>
-  <rect x="8" y="8" width="48" height="48" rx="12" fill="url(#bg)" opacity="0.18"/>
-  <path d="M32 12 47 18v12c0 11.6-6.3 18.9-15 22-8.7-3.1-15-10.4-15-22V18z" fill="none" stroke="url(#bg)" stroke-width="3.5" stroke-linejoin="round"/>
-  <path d="M18 35h8l4-9 5 16 4-10h7" fill="none" stroke="url(#pulse)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Shield crest, transparent background so it blends on any surface -->
+  <g fill="none" stroke="url(#rc)" stroke-width="4" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M31 7 11 16v15c0 12.4 8 20.4 21 25 13-4.6 21-12.6 21-25V16L33 7"/>
+    <!-- top notch -->
+    <path d="M32 7v6"/>
+    <!-- R: stem, bowl, leg -->
+    <path d="M21 44V21h11a6 6 0 0 1 0 12H22"/>
+    <path d="M26 33l8 11"/>
+    <!-- C: open ring on the right -->
+    <path d="M44 22a11 11 0 1 0 2 18" />
+  </g>
 </svg>

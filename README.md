@@ -1,4 +1,24 @@
-# RootCause
+<p align="center">
+  <img src="static/rootcause-icon.svg" alt="RootCause" width="120" height="120">
+</p>
+
+<h1 align="center">RootCause</h1>
+
+<p align="center">
+  <strong>Self-healing monitoring layer — unify your problems, automate the fix.</strong>
+</p>
+
+<p align="center">
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-d6453c.svg"></a>
+  <img alt="Python" src="https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white">
+  <img alt="Platform" src="https://img.shields.io/badge/Platform-Linux-555?logo=linux&logoColor=white">
+  <img alt="Docker" src="https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white">
+  <img alt="Android" src="https://img.shields.io/badge/Android-Companion%20app-3DDC84?logo=android&logoColor=white">
+  <a href="https://github.com/ivanvihe/rootcause/pulls"><img alt="PRs Welcome" src="https://img.shields.io/badge/PRs-welcome-37c978.svg"></a>
+  <img alt="Status" src="https://img.shields.io/badge/Status-self--hosted-f2f7ff.svg">
+</p>
+
+---
 
 **RootCause** is a self-healing monitoring layer. It unifies problems from your
 existing observability stack (Prometheus, Alertmanager, Zabbix, …) into a single
